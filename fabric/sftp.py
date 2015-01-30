@@ -6,6 +6,7 @@ import posixpath
 import stat
 import re
 from fnmatch import filter as fnfilter
+from functools import partial
 
 from fabric.state import output, connections, env
 from fabric.utils import warn
@@ -230,7 +231,7 @@ class SFTP(object):
         return result
 
     def put(self, local_path, remote_path, use_sudo, mirror_local_mode, mode,
-        local_is_path, temp_dir):
+        local_is_path, temp_dir, callback=None):
 
         from fabric.api import sudo, hide
         pre = self.ftp.getcwd()
@@ -259,7 +260,11 @@ class SFTP(object):
             old_pointer = local_path.tell()
             local_path.seek(0)
             putter = self.ftp.putfo
-        rattrs = putter(local_path, remote_path)
+        if callback is not None:
+            real_callback = partial(callback, local_path)
+        else:
+            real_callback = None
+        rattrs = putter(local_path, remote_path, callback=real_callback)
         if not local_is_path:
             local_path.seek(old_pointer)
         # Handle modes if necessary
@@ -292,7 +297,7 @@ class SFTP(object):
         return remote_path
 
     def put_dir(self, local_path, remote_path, use_sudo, mirror_local_mode,
-        mode, temp_dir):
+        mode, temp_dir, callback=None):
         if os.path.basename(local_path):
             strip = os.path.dirname(local_path)
         else:
